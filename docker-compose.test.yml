@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  mongodb-test:
+    image: mongo:7.0
+    container_name: mongodb-test
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: test_inventory_db
+    ports:
+      - "27018:27017"
+    networks:
+      - test-network
+
+  test:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: django_test
+    environment:
+      - DEBUG=True
+      - MONGODB_HOST=mongodb-test
+      - MONGODB_PORT=27017
+      - MONGODB_DB=test_inventory_db
+      - MONGODB_USERNAME=admin
+      - MONGODB_PASSWORD=password123
+    depends_on:
+      - mongodb-test
+    networks:
+      - test-network
+    command: >
+      sh -c "sleep 10 &&
+             python manage.py test --verbosity=2"
+
+networks:
+  test-network:
+    driver: bridge

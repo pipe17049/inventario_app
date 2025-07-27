@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: inventory_db
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - app-network
+
+  web:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: django_web
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+      - "8001:8001"  # WebSocket server port
+      - "3000:3000"  # Frontend port
+    environment:
+      - DEBUG=True
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT=27017
+      - MONGODB_DB=inventory_db
+      - MONGODB_USERNAME=admin
+      - MONGODB_PASSWORD=password123
+      - WEBSOCKET_HOST=0.0.0.0
+      - WEBSOCKET_PORT=8001
+    depends_on:
+      - mongodb
+    volumes:
+      - .:/app
+    networks:
+      - app-network
+    command: >
+      sh -c "python manage.py migrate --run-syncdb &&
+             python manage.py runserver 0.0.0.0:8000 &
+             python websocket_server.py &
+             cd /app/frontend && python -m http.server 3000"
+
+volumes:
+  mongodb_data:
+
+networks:
+  app-network:
+    driver: bridge
