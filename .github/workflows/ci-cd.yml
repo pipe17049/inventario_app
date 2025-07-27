@@ -160,7 +160,7 @@ jobs:
 
     - name: Test Docker image
       run: |
-        # Start services (try both docker-compose and docker compose)
+        # Start services
         docker-compose up -d mongodb || docker compose up -d mongodb
         sleep 20
         
@@ -168,38 +168,10 @@ jobs:
         docker-compose up --build -d || docker compose up --build -d
         sleep 30
         
-        # Test health endpoint (with fallback methods)
+        # Test health endpoint
         echo "Testing health endpoint..."
-        if ! docker-compose exec -T web curl -f http://localhost:8000/api/health/ 2>/dev/null && ! docker compose exec -T web curl -f http://localhost:8000/api/health/ 2>/dev/null; then
-          echo "curl not available, using python to test endpoint..."
-          docker-compose exec -T web python -c "
-import urllib.request
-import sys
-try:
-    response = urllib.request.urlopen('http://localhost:8000/api/health/')
-    if response.getcode() == 200:
-        print('✅ Health endpoint responded successfully')
-    else:
-        print('❌ Health endpoint returned:', response.getcode())
-        sys.exit(1)
-except Exception as e:
-    print('❌ Health endpoint test failed:', e)
-    sys.exit(1)
-" || docker compose exec -T web python -c "
-import urllib.request
-import sys
-try:
-    response = urllib.request.urlopen('http://localhost:8000/api/health/')
-    if response.getcode() == 200:
-        print('✅ Health endpoint responded successfully')
-    else:
-        print('❌ Health endpoint returned:', response.getcode())
-        sys.exit(1)
-except Exception as e:
-    print('❌ Health endpoint test failed:', e)
-    sys.exit(1)
-" || exit 1
-        fi
+        docker-compose exec -T web curl -f http://localhost:8000/api/health/ || docker compose exec -T web curl -f http://localhost:8000/api/health/ || exit 1
+        echo "✅ Health endpoint test passed"
         
         # Test WebSocket server
         echo "Testing WebSocket server..."
@@ -243,31 +215,11 @@ except Exception as e:
         
         # Test all endpoints
         echo "Testing API endpoints..."
-        if ! docker-compose exec -T web curl -f http://localhost:8000/api/health/ 2>/dev/null && ! docker compose exec -T web curl -f http://localhost:8000/api/health/ 2>/dev/null; then
-          echo "curl not available, using python for health check..."
-          docker-compose exec -T web python -c "
-import urllib.request
-response = urllib.request.urlopen('http://localhost:8000/api/health/')
-print('Health endpoint status:', response.getcode())
-" || docker compose exec -T web python -c "
-import urllib.request
-response = urllib.request.urlopen('http://localhost:8000/api/health/')
-print('Health endpoint status:', response.getcode())
-" || echo "Health endpoint test failed"
-        fi
+        docker-compose exec -T web curl -f http://localhost:8000/api/health/ || docker compose exec -T web curl -f http://localhost:8000/api/health/
+        echo "Health endpoint test completed"
         
-        if ! docker-compose exec -T web curl -f http://localhost:8000/api/items/ 2>/dev/null && ! docker compose exec -T web curl -f http://localhost:8000/api/items/ 2>/dev/null; then
-          echo "Testing items endpoint with python..."
-          docker-compose exec -T web python -c "
-import urllib.request
-response = urllib.request.urlopen('http://localhost:8000/api/items/')
-print('Items endpoint status:', response.getcode())
-" || docker compose exec -T web python -c "
-import urllib.request
-response = urllib.request.urlopen('http://localhost:8000/api/items/')
-print('Items endpoint status:', response.getcode())
-" || echo "Items endpoint test completed"
-        fi
+        docker-compose exec -T web curl -f http://localhost:8000/api/items/ || docker compose exec -T web curl -f http://localhost:8000/api/items/
+        echo "Items endpoint test completed"
         
         # Test WebSocket server (dedicated container)
         echo "Checking WebSocket server..."
@@ -281,24 +233,7 @@ print('Items endpoint status:', response.getcode())
         
         # Test frontend accessibility (dedicated container)
         echo "Testing frontend..."
-        if ! docker-compose exec -T frontend curl -f http://localhost:3000/ 2>/dev/null && ! docker compose exec -T frontend curl -f http://localhost:3000/ 2>/dev/null; then
-          echo "Frontend curl test failed, using python..."
-          docker-compose exec -T frontend python -c "
-import urllib.request
-try:
-    response = urllib.request.urlopen('http://localhost:3000/')
-    print('Frontend status:', response.getcode())
-except:
-    print('Frontend server not accessible')
-" || docker compose exec -T frontend python -c "
-import urllib.request
-try:
-    response = urllib.request.urlopen('http://localhost:3000/')
-    print('Frontend status:', response.getcode())
-except:
-    print('Frontend server not accessible')
-" || echo "Frontend test completed"
-        fi
+        docker-compose exec -T frontend curl -f http://localhost:3000/ || docker compose exec -T frontend curl -f http://localhost:3000/ || echo "Frontend test completed"
         
         echo "✅ Complete build test successful!"
         
