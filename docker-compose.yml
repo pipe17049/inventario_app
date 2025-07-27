@@ -22,8 +22,31 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
-      - "8001:8001"  # WebSocket server port
-      - "3000:3000"  # Frontend port
+    environment:
+      - DEBUG=True
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT=27017
+      - MONGODB_DB=inventory_db
+      - MONGODB_USERNAME=admin
+      - MONGODB_PASSWORD=password123
+    depends_on:
+      - mongodb
+    volumes:
+      - .:/app
+    networks:
+      - app-network
+    command: >
+      sh -c "python manage.py migrate --run-syncdb &&
+             python manage.py runserver 0.0.0.0:8000"
+
+  websocket:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: websocket_server
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
     environment:
       - DEBUG=True
       - MONGODB_HOST=mongodb
@@ -35,15 +58,26 @@ services:
       - WEBSOCKET_PORT=8001
     depends_on:
       - mongodb
+      - web
     volumes:
       - .:/app
     networks:
       - app-network
-    command: >
-      sh -c "python manage.py migrate --run-syncdb &&
-             python manage.py runserver 0.0.0.0:8000 &
-             python websocket_server.py &
-             cd /app/frontend && python -m http.server 3000"
+    command: python websocket_server.py
+
+  frontend:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: frontend_server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+    networks:
+      - app-network
+    command: sh -c "cd /app/frontend && python -m http.server 3000"
 
 volumes:
   mongodb_data:
