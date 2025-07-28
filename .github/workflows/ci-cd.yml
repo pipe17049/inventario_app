@@ -49,12 +49,16 @@ jobs:
     - name: Set environment variables
       run: |
         echo "DEBUG=True" >> $GITHUB_ENV
-        echo "SECRET_KEY=test-secret-key-for-ci" >> $GITHUB_ENV
+        echo "ENVIRONMENT=testing" >> $GITHUB_ENV
+        echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
+        echo "SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY || 'test-secret-key-for-ci' }}" >> $GITHUB_ENV
         echo "MONGODB_HOST=localhost" >> $GITHUB_ENV
         echo "MONGODB_PORT=27017" >> $GITHUB_ENV
         echo "MONGODB_DB=test_inventory_db" >> $GITHUB_ENV
-        echo "MONGODB_USERNAME=admin" >> $GITHUB_ENV
-        echo "MONGODB_PASSWORD=password123" >> $GITHUB_ENV
+        echo "MONGODB_USERNAME=${{ secrets.MONGODB_USERNAME || 'admin' }}" >> $GITHUB_ENV
+        echo "MONGODB_PASSWORD=${{ secrets.MONGODB_PASSWORD || 'password123' }}" >> $GITHUB_ENV
+        echo "MONGODB_AUTH_SOURCE=admin" >> $GITHUB_ENV
+        echo "ALLOWED_HOSTS=localhost,127.0.0.1,*" >> $GITHUB_ENV
 
     - name: Wait for services to be ready
       run: |
@@ -147,6 +151,16 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
+    - name: Set environment variables for Docker
+      run: |
+        echo "DEBUG=True" >> $GITHUB_ENV
+        echo "ENVIRONMENT=docker-testing" >> $GITHUB_ENV
+        echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
+        echo "SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY || 'docker-test-secret-key' }}" >> $GITHUB_ENV
+        echo "MONGODB_USERNAME=${{ secrets.MONGODB_USERNAME || 'admin' }}" >> $GITHUB_ENV
+        echo "MONGODB_PASSWORD=${{ secrets.MONGODB_PASSWORD || 'password123' }}" >> $GITHUB_ENV
+        echo "ALLOWED_HOSTS=localhost,127.0.0.1,django_web,0.0.0.0" >> $GITHUB_ENV
+
     - name: Install Docker Compose
       run: |
         # Install docker-compose for compatibility
@@ -226,6 +240,16 @@ jobs:
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+
+    - name: Set environment variables for complete test
+      run: |
+        echo "DEBUG=True" >> $GITHUB_ENV
+        echo "ENVIRONMENT=integration-testing" >> $GITHUB_ENV
+        echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
+        echo "SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY || 'integration-test-secret-key' }}" >> $GITHUB_ENV
+        echo "MONGODB_USERNAME=${{ secrets.MONGODB_USERNAME || 'admin' }}" >> $GITHUB_ENV
+        echo "MONGODB_PASSWORD=${{ secrets.MONGODB_PASSWORD || 'password123' }}" >> $GITHUB_ENV
+        echo "ALLOWED_HOSTS=localhost,127.0.0.1,django_web,0.0.0.0" >> $GITHUB_ENV
 
     - name: Install Docker Compose
       run: |
@@ -375,9 +399,25 @@ jobs:
     environment: staging
     
     steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set staging environment variables
+      run: |
+        echo "DEBUG=False" >> $GITHUB_ENV
+        echo "ENVIRONMENT=staging" >> $GITHUB_ENV
+        echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
+        echo "SECRET_KEY=${{ secrets.STAGING_SECRET_KEY }}" >> $GITHUB_ENV
+        echo "MONGODB_HOST=${{ secrets.STAGING_MONGODB_HOST }}" >> $GITHUB_ENV
+        echo "MONGODB_USERNAME=${{ secrets.STAGING_MONGODB_USERNAME }}" >> $GITHUB_ENV
+        echo "MONGODB_PASSWORD=${{ secrets.STAGING_MONGODB_PASSWORD }}" >> $GITHUB_ENV
+        echo "ALLOWED_HOSTS=${{ vars.STAGING_ALLOWED_HOSTS || 'staging.yourdomain.com' }}" >> $GITHUB_ENV
+    
     - name: Deploy to staging
       run: |
-        echo "Deploying to staging environment"
+        echo "🚀 Deploying to staging environment"
+        echo "Environment: $ENVIRONMENT"
+        echo "MongoDB Host: $MONGODB_HOST"
+        echo "Allowed Hosts: $ALLOWED_HOSTS"
         # Add your deployment commands here
 
   deploy-production:
@@ -387,7 +427,23 @@ jobs:
     environment: production
     
     steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set production environment variables
+      run: |
+        echo "DEBUG=False" >> $GITHUB_ENV
+        echo "ENVIRONMENT=production" >> $GITHUB_ENV
+        echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
+        echo "SECRET_KEY=${{ secrets.PRODUCTION_SECRET_KEY }}" >> $GITHUB_ENV
+        echo "MONGODB_HOST=${{ secrets.PRODUCTION_MONGODB_HOST }}" >> $GITHUB_ENV
+        echo "MONGODB_USERNAME=${{ secrets.PRODUCTION_MONGODB_USERNAME }}" >> $GITHUB_ENV
+        echo "MONGODB_PASSWORD=${{ secrets.PRODUCTION_MONGODB_PASSWORD }}" >> $GITHUB_ENV
+        echo "ALLOWED_HOSTS=${{ vars.PRODUCTION_ALLOWED_HOSTS || 'yourdomain.com' }}" >> $GITHUB_ENV
+    
     - name: Deploy to production
       run: |
-        echo "Deploying to production environment"
+        echo "🚀 Deploying to production environment"
+        echo "Environment: $ENVIRONMENT"
+        echo "MongoDB Host: $MONGODB_HOST"
+        echo "Allowed Hosts: $ALLOWED_HOSTS"
         # Add your deployment commands here

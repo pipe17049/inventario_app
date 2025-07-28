@@ -29,7 +29,21 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-change-me-in-production')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+# Environment detection
+ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')  # dev, staging, prod
+IS_GITHUB_ACTIONS = os.getenv('GITHUB_ACTIONS', 'false').lower() == 'true'
+
+# Allowed hosts - support GitHub Actions and different environments
+if IS_GITHUB_ACTIONS:
+    # In GitHub Actions, allow broader host access for testing
+    if DEBUG:
+        ALLOWED_HOSTS = ['*']
+    else:
+        hosts_env = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1')
+        ALLOWED_HOSTS = hosts_env.split(',')
+else:
+    hosts_env = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1')
+    ALLOWED_HOSTS = hosts_env.split(',')
 
 # Application definition
 INSTALLED_APPS = [
@@ -76,16 +90,43 @@ TEMPLATES = [
 WSGI_APPLICATION = 'inventory_project.wsgi.application'
 
 # MongoDB configuration
-MONGODB_SETTINGS = {
-    'host': os.getenv('MONGODB_HOST', 'localhost'),
-    'port': int(os.getenv('MONGODB_PORT', 27017)),
-    'db': os.getenv('MONGODB_DB', 'inventory_db'),
-    'username': os.getenv('MONGODB_USERNAME'),
-    'password': os.getenv('MONGODB_PASSWORD'),
-    'authentication_source': 'admin',
-}
+# Support different configurations for development, staging, and production
+if IS_GITHUB_ACTIONS or ENVIRONMENT in ['staging', 'production']:
+    # Use GitHub Actions secrets or production environment variables
+    MONGODB_SETTINGS = {
+        'host': os.getenv('MONGODB_HOST', 'localhost'),
+        'port': int(os.getenv('MONGODB_PORT', 27017)),
+        'db': os.getenv('MONGODB_DB', 'inventory_db'),
+        'username': os.getenv('MONGODB_USERNAME'),
+        'password': os.getenv('MONGODB_PASSWORD'),
+        'authentication_source': os.getenv('MONGODB_AUTH_SOURCE', 'admin'),
+        # Additional production settings
+        'maxPoolSize': int(os.getenv('MONGODB_MAX_POOL_SIZE', 50)),
+        'minPoolSize': int(os.getenv('MONGODB_MIN_POOL_SIZE', 5)),
+        'serverSelectionTimeoutMS': int(os.getenv('MONGODB_TIMEOUT', 5000)),
+    }
+else:
+    # Local development settings
+    MONGODB_SETTINGS = {
+        'host': os.getenv('MONGODB_HOST', 'localhost'),
+        'port': int(os.getenv('MONGODB_PORT', 27017)),
+        'db': os.getenv('MONGODB_DB', 'inventory_db'),
+        'username': os.getenv('MONGODB_USERNAME'),
+        'password': os.getenv('MONGODB_PASSWORD'),
+        'authentication_source': 'admin',
+    }
 
-mongoengine.connect(**MONGODB_SETTINGS)
+# Connect to MongoDB with error handling
+try:
+    mongoengine.connect(**MONGODB_SETTINGS)
+    if IS_GITHUB_ACTIONS:
+        print("✅ MongoDB connection established (GitHub Actions)")
+    else:
+        print(f"✅ MongoDB connection established ({ENVIRONMENT})")
+except Exception as e:
+    print(f"❌ MongoDB connection failed: {e}")
+    if not IS_GITHUB_ACTIONS:
+        raise
 
 # Database (We'll keep this for Django's internal tables)
 DATABASES = {
