@@ -179,10 +179,27 @@ if __name__ == '__main__':
     host = os.getenv('WEBSOCKET_HOST', '0.0.0.0')
     port = int(os.getenv('WEBSOCKET_PORT', 8001))
     
+    # Add startup delay and connection verification
+    import time
+    logger.info("WebSocket server starting up...")
+    logger.info("Waiting 5 seconds for system initialization...")
+    time.sleep(5)
+    
+    # Test Django connection before starting WebSocket server
     try:
+        from django.conf import settings
+        logger.info(f"Django settings loaded: {settings.DEBUG}")
+        logger.info(f"MongoDB Host: {os.getenv('MONGODB_HOST', 'localhost')}")
+    except Exception as e:
+        logger.warning(f"Django setup warning: {e}")
+    
+    try:
+        logger.info(f"Starting WebSocket server on {host}:{port}")
         asyncio.run(ws_server.start_server(host, port))
     except KeyboardInterrupt:
-        logger.info("WebSocket server stopped")
+        logger.info("WebSocket server stopped by user")
     except Exception as e:
         logger.error(f"WebSocket server error: {e}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         sys.exit(1)

@@ -160,22 +160,58 @@ jobs:
 
     - name: Test Docker image
       run: |
-        # Start services
+        # Start services with proper health checks
         docker-compose up -d mongodb || docker compose up -d mongodb
-        sleep 20
+        echo "Waiting for MongoDB to be healthy..."
+        sleep 45
         
-        # Build and start all services
+        # Check MongoDB health
+        docker-compose exec -T mongodb mongosh --eval "db.adminCommand('ping')" || docker compose exec -T mongodb mongosh --eval "db.adminCommand('ping')" || echo "MongoDB check completed"
+        
+        # Build and start all services with longer wait
         docker-compose up --build -d || docker compose up --build -d
-        sleep 30
+        echo "Waiting for all services to start (extended wait)..."
+        sleep 120
         
-        # Test health endpoint
-        echo "Testing health endpoint..."
-        docker-compose exec -T web curl -f http://localhost:8000/api/health/ || docker compose exec -T web curl -f http://localhost:8000/api/health/ || exit 1
-        echo "✅ Health endpoint test passed"
+        # Wait for services to be healthy
+        echo "Checking service health status..."
+        docker-compose ps || docker compose ps
         
-        # Test WebSocket server
-        echo "Testing WebSocket server..."
-        docker-compose exec -T websocket netstat -tulpn | grep :8001 || docker compose exec -T websocket netstat -tulpn | grep :8001 || echo "WebSocket server check completed"
+        # Check container logs before testing
+        echo "Container logs for debugging:"
+        docker-compose logs mongodb | tail -10 || docker compose logs mongodb | tail -10
+        docker-compose logs web | tail -15 || docker compose logs web | tail -15
+        docker-compose logs websocket | tail -15 || docker compose logs websocket | tail -15
+        
+        # Test health endpoint with extended retries
+        echo "Testing health endpoint with extended retries..."
+        for i in {1..8}; do
+          if docker-compose exec -T web curl -f http://localhost:8000/api/health/ || docker compose exec -T web curl -f http://localhost:8000/api/health/; then
+            echo "✅ Health endpoint test passed on attempt $i"
+            break
+          else
+            echo "Health endpoint attempt $i failed, retrying in 15 seconds..."
+            sleep 15
+            # Show container status on failure
+            if [ $i -eq 4 ]; then
+              echo "Midway check - container status:"
+              docker-compose ps || docker compose ps
+              docker-compose logs web | tail -10 || docker compose logs web | tail -10
+            fi
+          fi
+        done
+        
+        # Test WebSocket server with retries
+        echo "Testing WebSocket server with retries..."
+        for i in {1..5}; do
+          if docker-compose exec -T websocket netstat -tulpn | grep :8001 || docker compose exec -T websocket netstat -tulpn | grep :8001; then
+            echo "✅ WebSocket server test passed on attempt $i"
+            break
+          else
+            echo "WebSocket test attempt $i failed, retrying in 10 seconds..."
+            sleep 10
+          fi
+        done
         
         # Cleanup
         docker-compose down || docker compose down
@@ -205,21 +241,55 @@ jobs:
         # Build the application
         docker build -t inventory-app:develop .
         
-        # Start all services
+        # Start all services with extended health checks
         docker-compose up -d mongodb || docker compose up -d mongodb
-        sleep 15
+        echo "Waiting for MongoDB to be healthy (extended wait)..."
+        sleep 40
         
-        # Build and start all application services
+        # Check MongoDB health
+        docker-compose exec -T mongodb mongosh --eval "db.adminCommand('ping')" || docker compose exec -T mongodb mongosh --eval "db.adminCommand('ping')" || echo "MongoDB check completed"
+        
+        # Build and start all application services with longer wait
         docker-compose up --build -d || docker compose up --build -d
-        sleep 30
+        echo "Waiting for all services to start (extended startup time)..."
+        sleep 150
         
-        # Test all endpoints
-        echo "Testing API endpoints..."
-        docker-compose exec -T web curl -f http://localhost:8000/api/health/ || docker compose exec -T web curl -f http://localhost:8000/api/health/
-        echo "Health endpoint test completed"
+        # Check service status with logs
+        echo "Checking service status and logs..."
+        docker-compose ps || docker compose ps
+        echo "MongoDB logs:"
+        docker-compose logs mongodb | tail -5 || docker compose logs mongodb | tail -5
+        echo "Web service logs:"
+        docker-compose logs web | tail -10 || docker compose logs web | tail -10
+        echo "WebSocket service logs:"
+        docker-compose logs websocket | tail -10 || docker compose logs websocket | tail -10
         
-        docker-compose exec -T web curl -f http://localhost:8000/api/items/ || docker compose exec -T web curl -f http://localhost:8000/api/items/
-        echo "Items endpoint test completed"
+        # Test all endpoints with extended retries
+        echo "Testing API endpoints with extended retries..."
+        for i in {1..6}; do
+          if docker-compose exec -T web curl -f http://localhost:8000/api/health/ || docker compose exec -T web curl -f http://localhost:8000/api/health/; then
+            echo "✅ Health endpoint test passed on attempt $i"
+            break
+          else
+            echo "Health endpoint attempt $i failed, retrying in 20 seconds..."
+            sleep 20
+            if [ $i -eq 3 ]; then
+              echo "Midway debugging - container status:"
+              docker-compose ps || docker compose ps
+              docker-compose logs web | tail -5 || docker compose logs web | tail -5
+            fi
+          fi
+        done
+        
+        for i in {1..5}; do
+          if docker-compose exec -T web curl -f http://localhost:8000/api/items/ || docker compose exec -T web curl -f http://localhost:8000/api/items/; then
+            echo "✅ Items endpoint test passed on attempt $i"
+            break
+          else
+            echo "Items endpoint attempt $i failed, retrying in 15 seconds..."
+            sleep 15
+          fi
+        done
         
         # Test WebSocket server (dedicated container)
         echo "Checking WebSocket server..."

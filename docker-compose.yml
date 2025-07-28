@@ -13,6 +13,12 @@ services:
       - mongodb_data:/data/db
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   web:
     build: 
@@ -30,14 +36,23 @@ services:
       - MONGODB_USERNAME=admin
       - MONGODB_PASSWORD=password123
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
     volumes:
       - .:/app
     networks:
       - app-network
     command: >
-      sh -c "python manage.py migrate --run-syncdb &&
+      sh -c "sleep 15 &&
+             echo 'Starting Django web server...' &&
+             python manage.py migrate --run-syncdb &&
              python manage.py runserver 0.0.0.0:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
 
   websocket:
     build: 
@@ -57,13 +72,24 @@ services:
       - WEBSOCKET_HOST=0.0.0.0
       - WEBSOCKET_PORT=8001
     depends_on:
-      - mongodb
-      - web
+      mongodb:
+        condition: service_healthy
+      web:
+        condition: service_healthy
     volumes:
       - .:/app
     networks:
       - app-network
-    command: python websocket_server.py
+    command: >
+      sh -c "sleep 30 &&
+             echo 'Starting WebSocket server...' &&
+             python websocket_server.py"
+    healthcheck:
+      test: ["CMD", "sh", "-c", "netstat -tulpn | grep :8001 || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 90s
 
   frontend:
     build: 
@@ -73,11 +99,17 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+    depends_on:
+      web:
+        condition: service_healthy
     volumes:
       - .:/app
     networks:
       - app-network
-    command: sh -c "cd /app/frontend && python -m http.server 3000"
+    command: >
+      sh -c "sleep 20 &&
+             echo 'Starting frontend server...' &&
+             cd /app/frontend && python -m http.server 3000"
 
 volumes:
   mongodb_data:
