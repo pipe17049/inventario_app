@@ -129,12 +129,32 @@ except Exception as e:
         raise
 
 # Database (We'll keep this for Django's internal tables)
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Use different database configurations for different environments
+if IS_GITHUB_ACTIONS:
+    # In GitHub Actions, use in-memory SQLite
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
     }
-}
+elif ENVIRONMENT in ['docker', 'staging', 'production']:
+    # For Docker/staging/production, use app user's home directory
+    db_path = os.path.expanduser('~/inventory_db.sqlite3')
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': db_path,
+        }
+    }
+else:
+    # Local development
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # Cache configuration (using dummy cache since we removed Redis)
 CACHES = {

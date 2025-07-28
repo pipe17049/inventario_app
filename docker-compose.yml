@@ -30,6 +30,7 @@ services:
       - "8000:8000"
     environment:
       - DEBUG=True
+      - ENVIRONMENT=docker
       - MONGODB_HOST=mongodb
       - MONGODB_PORT=27017
       - MONGODB_DB=inventory_db

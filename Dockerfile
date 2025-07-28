@@ -17,9 +17,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project
 COPY . .
 
-# Create a non-root user
+# Create a non-root user and ensure /tmp is writable
 RUN useradd --create-home --shell /bin/bash app \
-    && chown -R app:app /app
+    && chown -R app:app /app \
+    && mkdir -p /tmp \
+    && chmod 777 /tmp
 USER app
 
 EXPOSE 8000 8001 3000

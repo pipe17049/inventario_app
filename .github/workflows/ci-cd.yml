@@ -244,7 +244,7 @@ jobs:
     - name: Set environment variables for complete test
       run: |
         echo "DEBUG=True" >> $GITHUB_ENV
-        echo "ENVIRONMENT=integration-testing" >> $GITHUB_ENV
+        echo "ENVIRONMENT=docker-testing" >> $GITHUB_ENV
         echo "GITHUB_ACTIONS=true" >> $GITHUB_ENV
         echo "SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY || 'integration-test-secret-key' }}" >> $GITHUB_ENV
         echo "MONGODB_USERNAME=${{ secrets.MONGODB_USERNAME || 'admin' }}" >> $GITHUB_ENV
