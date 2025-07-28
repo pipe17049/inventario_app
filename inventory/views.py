@@ -161,6 +161,21 @@ def item_detail(request, item_id):
 @api_view(['GET'])
 def health_check(request):
     """
-    Health check endpoint
+    Health check endpoint with database connectivity test
     """
-    return Response({'status': 'healthy', 'message': 'Inventory API is running'})
+    try:
+        # Test database connection by querying items count
+        from .models import Item
+        Item.objects.count()  # Forces a database query
+        
+        return Response({
+            'status': 'healthy',
+            'message': 'Inventory API is running',
+            'database': 'connected'
+        })
+    except Exception as e:
+        return Response({
+            'status': 'unhealthy',
+            'message': f'Database connection failed: {str(e)}',
+            'database': 'disconnected'
+        }, status=503)
